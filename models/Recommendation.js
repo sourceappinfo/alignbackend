@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const commentSchema = new mongoose.Schema({
+const recommendationSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -11,17 +11,16 @@ const commentSchema = new mongoose.Schema({
     ref: 'Company',
     required: true,
   },
-  text: {
+  reason: {
     type: String,
-    required: true,
+    default: 'Based on your preferences and past interactions',
   },
-  rating: {
-    type: Number,
-    min: 1,
-    max: 5,
+  createdAt: {
+    type: Date,
+    default: Date.now,
   },
 }, {
   timestamps: true,
 });
 
-module.exports = mongoose.model('Comment', commentSchema);
+module.exports = mongoose.model('Recommendation', recommendationSchema);

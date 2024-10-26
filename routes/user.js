@@ -1,12 +1,12 @@
 const express = require('express');
-const router = express.Router();
 const userController = require('../controllers/userController');
 const authMiddleware = require('../middleware/authMiddleware');
+const router = express.Router();
 
-// Route to submit survey responses
-router.post('/submit-survey', authMiddleware, userController.submitSurvey);
+// GET /api/users/profile
+router.get('/profile', authMiddleware, userController.getUserProfile);
 
-// Route to get recommendations based on survey responses
-router.get('/recommendations', authMiddleware, userController.getRecommendations);
+// PUT /api/users/profile
+router.put('/profile', authMiddleware, userController.updateUserProfile);
 
 module.exports = router;
