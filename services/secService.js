@@ -1,47 +1,78 @@
-// services/secService.js
+// src/services/secService.js
 const axios = require('axios');
-const API_BASE_URL = 'https://data.sec.gov/submissions';
+const config = require('../config');
 
-async function fetchCompanyData(cik) {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/CIK${cik}.json`, {
-      headers: {
-        'User-Agent': 'YourAppName (your.email@example.com)',
-      },
-    });
-    return response.data;
-  } catch (error) {
-    console.error(`Error fetching data for CIK ${cik}:`, error.message);
-    throw new Error('Unable to retrieve SEC data.');
+class SECService {
+  constructor() {
+    this.baseUrl = 'https://data.sec.gov/api';
+    this.userAgent = config.SEC_USER_AGENT;
+  }
+
+  async getCompanyProfile(cik) {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/submissions/CIK${cik}.json`,
+        {
+          headers: {
+            'User-Agent': this.userAgent
+          }
+        }
+      );
+      return this.processCompanyProfile(response.data);
+    } catch (error) {
+      console.error('Error fetching SEC data:', error);
+      throw error;
+    }
+  }
+
+  async getFinancialData(cik) {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/xbrl/companyfacts/CIK${cik}.json`,
+        {
+          headers: {
+            'User-Agent': this.userAgent
+          }
+        }
+      );
+      return this.processFinancialData(response.data);
+    } catch (error) {
+      console.error('Error fetching financial data:', error);
+      throw error;
+    }
+  }
+
+  processCompanyProfile(data) {
+    return {
+      name: data.name,
+      cik: data.cik,
+      sic: data.sic,
+      sicDescription: data.sicDescription,
+      employees: data.employees,
+      addresses: data.addresses
+    };
+  }
+
+  processFinancialData(data) {
+    // Extract relevant financial metrics
+    const facts = data.facts['us-gaap'];
+    return {
+      revenue: this.getLatestValue(facts.Revenues),
+      netIncome: this.getLatestValue(facts.NetIncomeLoss),
+      totalAssets: this.getLatestValue(facts.Assets),
+      totalLiabilities: this.getLatestValue(facts.Liabilities)
+    };
+  }
+
+  getLatestValue(metric) {
+    if (!metric || !metric.units || !metric.units.USD) return null;
+    const values = metric.units.USD;
+    return values.reduce((latest, current) => {
+      return (!latest || new Date(current.end) > new Date(latest.end))
+        ? current
+        : latest;
+    }, null);
   }
 }
 
-async function extractFinancialData(cik) {
-  const data = await fetchCompanyData(cik);
-  const filings = data?.filings?.recent;
-
-  if (!filings) throw new Error('No recent filings found.');
-
-  // Extract some key financial data points
-  const revenue = filings.revenue;
-  const netIncome = filings.netIncome;
-  const assets = filings.assets;
-  const liabilities = filings.liabilities;
-
-  return { revenue, netIncome, assets, liabilities };
-}
-
-async function extractOwnershipData(cik) {
-  const data = await fetchCompanyData(cik);
-  const ownership = data?.ownership?.recent;
-
-  if (!ownership) throw new Error('No recent ownership data found.');
-
-  return ownership;
-}
-
-module.exports = {
-  fetchCompanyData,
-  extractFinancialData,
-  extractOwnershipData,
-};
+module.exports = new SECService();
