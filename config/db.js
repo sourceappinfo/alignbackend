@@ -1,8 +1,6 @@
-// config/db.js
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-
-dotenv.config();
+const logger = require('../utils/logger');
+require('dotenv').config();
 
 const connectDB = async () => {
   try {
@@ -10,32 +8,11 @@ const connectDB = async () => {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-
-    console.log(`MongoDB connected: ${conn.connection.host}`);
+    logger.info(`MongoDB connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error(`Error: ${error.message}`);
-    process.exit(1); // Exit process with failure
+    logger.error(`Database connection error: ${error.message}`);
+    process.exit(1);
   }
 };
-
-// Handle connection events for better feedback and error tracking
-mongoose.connection.on('connected', () => {
-  console.log('Mongoose connected to DB');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error(`Mongoose connection error: ${err}`);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('Mongoose disconnected from DB');
-});
-
-// Clean up and close connection on app termination
-process.on('SIGINT', async () => {
-  await mongoose.connection.close();
-  console.log('Mongoose disconnected due to app termination');
-  process.exit(0);
-});
 
 module.exports = connectDB;

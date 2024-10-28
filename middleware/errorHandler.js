@@ -1,15 +1,17 @@
 // middleware/errorHandler.js
+const logger = require('../utils/logger');
+
 const errorHandler = (err, req, res, next) => {
-    console.error(err.stack);
+  logger.error(err.stack || err.message);
   
-    const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-    res.status(statusCode);
-  
-    res.json({
-      message: err.message,
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-    });
-  };
-  
-  module.exports = errorHandler;
-  
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({ message: 'Validation Error', details: err.message });
+  }
+
+  res.status(500).json({
+    message: 'Internal Server Error',
+    error: process.env.NODE_ENV === 'production' ? undefined : err.message,
+  });
+};
+
+module.exports = errorHandler;

@@ -1,49 +1,57 @@
-// server.js
-
 const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const rateLimiter = require('./middleware/rateLimiter');
-const errorHandler = require('./middleware/errorHandler');
-const authMiddleware = require('./middleware/authMiddleware');
-const cors = require('cors');
+const logger = require('./utils/logger');
+const redis = require('redis');
 
-// Load environment variables from .env file
+// Load environment variables
 dotenv.config();
 
 // Initialize the app
 const app = express();
 
-// Connect to the MongoDB database
+// Connect to the database
 connectDB();
+
+// Redis configuration (optional, if needed for caching)
+const redisClient = redis.createClient({
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT,
+  password: process.env.REDIS_PASSWORD,
+});
+redisClient.on('connect', () => logger.info('Connected to Redis'));
+redisClient.on('error', (err) => logger.error(`Redis error: ${err}`));
 
 // Middleware to parse JSON
 app.use(express.json());
 
-// Enable CORS for cross-origin requests
-app.use(cors());
-
-// Apply global rate limiter middleware
+// Apply rate limiting middleware
 app.use(rateLimiter);
 
-// Routes for various API endpoints
+// Define routes
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/users', require('./routes/user'));
 app.use('/api/companies', require('./routes/company'));
-app.use('/api/surveys', require('./routes/survey'));
-app.use('/api/recommendations', require('./routes/recommendations'));
+app.use('/api/users', require('./routes/user'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/image-recognition', require('./routes/imageRecognition'));
 
-// Global error handler middleware
-app.use(errorHandler);
+// Health check route to ensure the server is running
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', database: 'connected' });
+});
 
-// Define a port from environment or use 5000 as default
+// Error handling middleware
+app.use((err, req, res, next) => {
+  logger.error(err.message);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
+
+// Define a port
 const PORT = process.env.PORT || 5000;
 
 // Start the server
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  logger.info(`Server running on port ${PORT}`);
 });
-
-module.exports = app;

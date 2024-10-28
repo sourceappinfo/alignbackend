@@ -1,3 +1,4 @@
+// controllers/authController.js
 const authService = require('../services/authService');
 const { formatResponse } = require('../utils/responseFormatter');
 

@@ -1,15 +1,23 @@
 // middleware/validationMiddleware.js
-const { validationResult } = require('express-validator');
+const { body, validationResult } = require('express-validator');
+const sanitizeHtml = require('sanitize-html');
 
-const validationMiddleware = (req, res, next) => {
+const validateAndSanitize = (validations) => async (req, res, next) => {
+  await Promise.all(validations.map(validation => validation.run(req)));
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({
-      message: 'Validation failed',
-      errors: errors.array(),
-    });
+    return res.status(400).json({ errors: errors.array() });
   }
+
+  // Sanitize request body to prevent XSS
+  for (const key in req.body) {
+    if (typeof req.body[key] === 'string') {
+      req.body[key] = sanitizeHtml(req.body[key]);
+    }
+  }
+
   next();
 };
 
-module.exports = validationMiddleware;
+module.exports = { validateAndSanitize };
