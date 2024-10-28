@@ -10,6 +10,10 @@ yarn-debug.log*
 # Environment variables
 .env
 
+# Service account credentials and secrets
+secrets/
+*.json
+
 # MacOS specific files
 .DS_Store
 
@@ -35,6 +39,9 @@ firebase-service-account.json
 # Coverage reports
 coverage/
 
+# Test outputs
+test-reports/
+
 # Temporary files
 *.swp
 *.swo
@@ -42,3 +49,13 @@ coverage/
 
 # Redis dumps
 dump.rdb
+appendonly.aof
+
+# Jest cache and coverage directory
+jest/
+
+# Pycache for Python scripts if present in scripts/
+scripts/__pycache__/
+
+# Optional: Ignore files in secrets directory
+secrets/*
