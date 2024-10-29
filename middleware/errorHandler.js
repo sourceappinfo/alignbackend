@@ -1,16 +1,10 @@
-// middleware/errorHandler.js
-const logger = require('../utils/logger');
-
 const errorHandler = (err, req, res, next) => {
-  logger.error(err.stack || err.message);
-  
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({ message: 'Validation Error', details: err.message });
-  }
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'An unexpected error occurred';
 
-  res.status(500).json({
-    message: 'Internal Server Error',
-    error: process.env.NODE_ENV === 'production' ? undefined : err.message,
+  res.status(statusCode).json({
+    status: 'error',
+    message: message
   });
 };
 

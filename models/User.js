@@ -1,61 +1,76 @@
-// models/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true,
-  },
   email: {
     type: String,
     required: true,
     unique: true,
-    lowercase: true,
+    trim: true,
+    lowercase: true
   },
   password: {
     type: String,
     required: true,
+    minlength: 8
   },
-  // User survey responses
-  surveyResponses: {
-    keyValues: [{ type: String }], // Values important to the user (Q1)
-    valueImportance: { type: Map, of: Number }, // Ratings (Q2)
-    productCategories: { type: Map, of: String }, // Product categories (Q3)
-    purchaseFactors: [{ type: String }], // Influencing factors (Q4)
-    knowledgeRating: { type: Map, of: Number }, // Knowledge ratings (Q5)
-    ethicalSupport: { type: String }, // Ethical support response (Q6)
-    stopSupporting: [{ type: String }], // Reasons to stop supporting (Q8)
-    ethicalPurchasingFrequency: { type: String }, // Ethical purchasing frequency (Q9)
-    valueAlignmentImportance: { type: Number }, // Importance of alignment (Q10)
-    specificCompanies: [{ type: String }], // Companies to support (Q11)
+  firstName: {
+    type: String,
+    trim: true
   },
-  // Starred companies and preferences
-  starredCompanies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Company' }],
+  lastName: {
+    type: String,
+    trim: true
+  },
   preferences: {
     type: Map,
-    of: String, // Store specific user preferences
+    of: String,
+    default: new Map()
   },
-  role: {
-    type: String,
-    enum: ['user', 'admin'],
-    default: 'user',
+  createdAt: {
+    type: Date,
+    default: Date.now
   },
-}, {
-  timestamps: true,
+  lastLogin: {
+    type: Date
+  }
 });
 
-// Encrypt password before saving
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
-  next();
+// Hash password before saving
+userSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) {
+    return next();
+  }
+  
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
-// Password comparison method
-userSchema.methods.comparePassword = async function (candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+// Compare password method
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    throw new Error('Password comparison failed');
+  }
 };
 
-module.exports = mongoose.model('User', userSchema);
+// Update last login
+userSchema.methods.updateLastLogin = async function() {
+  this.lastLogin = new Date();
+  return this.save();
+};
+
+// Get full name
+userSchema.methods.getFullName = function() {
+  return `${this.firstName || ''} ${this.lastName || ''}`.trim();
+};
+
+const User = mongoose.model('User', userSchema);
+
+module.exports = User;

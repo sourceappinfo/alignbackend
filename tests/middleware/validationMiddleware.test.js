@@ -1,28 +1,43 @@
-const validationMiddleware = require('../../middleware/validationMiddleware');
-const { check, validationResult } = require('express-validator');
+const { validationMiddleware } = require('../../middleware/validationMiddleware');
+const httpMocks = require('node-mocks-http');
 
 describe('Validation Middleware', () => {
-  it('should call next if there are no validation errors', () => {
-    const req = { body: { email: 'test@example.com' } };
-    const res = {};
+  it('should validate required fields', async () => {
+    const req = httpMocks.createRequest({
+      body: {}
+    });
+    const res = httpMocks.createResponse();
     const next = jest.fn();
 
-    validationMiddleware([check('email').isEmail()])(req, res, next);
-    expect(next).toHaveBeenCalled();
+    await validationMiddleware(req, res, next);
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res._getData())).toHaveProperty('error');
   });
 
-  it('should return errors if validation fails', () => {
-    const req = { body: { email: 'invalid-email' } };
-    const res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    };
+  it('should validate field formats', async () => {
+    const req = httpMocks.createRequest({
+      body: {
+        email: 'invalid-email'
+      }
+    });
+    const res = httpMocks.createResponse();
     const next = jest.fn();
 
-    validationMiddleware([check('email').isEmail()])(req, res, next);
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
-      errors: expect.any(Array),
+    await validationMiddleware(req, res, next);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('should pass validation with valid data', async () => {
+    const req = httpMocks.createRequest({
+      body: {
+        email: 'test@example.com',
+        password: 'validPassword123'
+      }
     });
+    const res = httpMocks.createResponse();
+    const next = jest.fn();
+
+    await validationMiddleware(req, res, next);
+    expect(next).toHaveBeenCalled();
   });
 });

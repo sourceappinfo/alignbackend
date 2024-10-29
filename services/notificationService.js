@@ -1,22 +1,63 @@
 const Notification = require('../models/Notification');
-const User = require('../models/User');
 
-const subscribeUser = async (userId, notificationType) => {
-  const user = await User.findById(userId);
-  if (!user) throw new Error('User not found');
+class NotificationService {
+  static async sendNotification(userId, message) {
+    try {
+      const notification = await Notification.create({
+        userId,
+        message,
+        title: 'New Alert',
+        createdAt: new Date(),
+        read: false
+      });
+      
+      return notification;
+    } catch (error) {
+      throw new Error(`Failed to send notification: ${error.message}`);
+    }
+  }
 
-  user.notifications.push(notificationType);
-  await user.save();
+  static async getNotifications(userId) {
+    try {
+      const notifications = await Notification.find({ userId })
+        .sort({ createdAt: -1 });
+      return notifications;
+    } catch (error) {
+      throw new Error(`Failed to get notifications: ${error.message}`);
+    }
+  }
 
-  return user;
-};
+  static async markAsRead(notificationId) {
+    try {
+      const notification = await Notification.findByIdAndUpdate(
+        notificationId,
+        { read: true },
+        { new: true }
+      );
+      
+      if (!notification) {
+        throw new Error('Notification not found');
+      }
+      
+      return notification;
+    } catch (error) {
+      throw new Error(`Failed to mark notification as read: ${error.message}`);
+    }
+  }
 
-const sendNotification = async (userId, message) => {
-  const user = await User.findById(userId);
-  if (!user) throw new Error('User not found');
+  static async deleteNotification(notificationId) {
+    try {
+      const notification = await Notification.findByIdAndDelete(notificationId);
+      
+      if (!notification) {
+        throw new Error('Notification not found');
+      }
+      
+      return notification;
+    } catch (error) {
+      throw new Error(`Failed to delete notification: ${error.message}`);
+    }
+  }
+}
 
-  // Placeholder for notification logic (e.g., email, SMS)
-  console.log(`Sending notification to ${user.email}: ${message}`);
-};
-
-module.exports = { subscribeUser, sendNotification };
+module.exports = NotificationService;

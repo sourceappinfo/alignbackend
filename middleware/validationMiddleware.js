@@ -1,23 +1,29 @@
-// middleware/validationMiddleware.js
-const { body, validationResult } = require('express-validator');
-const sanitizeHtml = require('sanitize-html');
+const { ValidationError } = require('../utils/errorTypes');
 
-const validateAndSanitize = (validations) => async (req, res, next) => {
-  await Promise.all(validations.map(validation => validation.run(req)));
+const validationMiddleware = async (req, res, next) => {
+  try {
+    // Add your validation logic here
+    const { email, password } = req.body;
 
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
-  // Sanitize request body to prevent XSS
-  for (const key in req.body) {
-    if (typeof req.body[key] === 'string') {
-      req.body[key] = sanitizeHtml(req.body[key]);
+    if (!email || !password) {
+      throw new ValidationError('Email and password are required');
     }
-  }
 
-  next();
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new ValidationError('Invalid email format');
+    }
+
+    // Password validation
+    if (password.length < 8) {
+      throw new ValidationError('Password must be at least 8 characters long');
+    }
+
+    next();
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 };
 
-module.exports = { validateAndSanitize };
+module.exports = { validationMiddleware };
