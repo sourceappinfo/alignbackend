@@ -3,11 +3,35 @@ const Survey = require('../../models/Survey');
 
 describe('Survey Model', () => {
   it('should create a new survey question', async () => {
-    const survey = new Survey({
-      questionText: 'How do you feel about sustainability?',
-      type: 'scale',
-      options: [{ label: '1', value: 1 }, { label: '5', value: 5 }], // Assuming this structure is correct for `options`
+    const mockSurvey = {
+      title: 'Test Survey',
+      description: 'Test Description',
+      questions: [{
+        questionText: 'How do you feel about sustainability?',
+        questionType: 'multiple-choice',
+        options: [{
+          text: '1',
+          value: 1
+        }, {
+          text: '5',
+          value: 5
+        }],
+        order: 1
+      }],
+      createdBy: new mongoose.Types.ObjectId()
+    };
+
+    const survey = new Survey(mockSurvey);
+    await expect(survey.validate()).resolves.toBeUndefined();
+  });
+
+  it('should reject invalid survey data', async () => {
+    const invalidSurvey = new Survey({
+      questions: [{
+        questionType: 'invalid-type'
+      }]
     });
-    await survey.validate(); // This should pass without validation errors
+
+    await expect(invalidSurvey.validate()).rejects.toThrow();
   });
 });
