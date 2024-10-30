@@ -1,26 +1,22 @@
-const mongoose = require('mongoose');
-
 const recommendationSchema = new mongoose.Schema({
-  user: {
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
+    index: true
   },
-  company: {
+  companyId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Company',
+    required: true
+  },
+  score: {
+    type: Number,
     required: true,
-  },
-  reason: {
-    type: String,
-    default: 'Based on your preferences and past interactions',
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-}, {
-  timestamps: true,
-});
+    min: 0,
+    max: 100
+  }
+}, { timestamps: true });
 
-module.exports = mongoose.model('Recommendation', recommendationSchema);
+const Recommendation = mongoose.model('Recommendation', recommendationSchema);
+module.exports = Recommendation;

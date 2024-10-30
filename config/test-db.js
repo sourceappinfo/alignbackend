@@ -1,4 +1,3 @@
-// config/test-db.js
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
@@ -7,7 +6,8 @@ let mongoServer;
 const connect = async () => {
   mongoServer = await MongoMemoryServer.create();
   const uri = mongoServer.getUri();
-  await mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+  await mongoose.connect(uri);
+  return uri;
 };
 
 const closeDatabase = async () => {

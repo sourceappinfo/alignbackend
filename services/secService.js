@@ -11,7 +11,9 @@ class SECService {
 
   async getCompanyProfile(cik) {
     try {
-      const response = await axios.get(`${this.baseUrl}/submissions/CIK${cik}.json`, {
+      const url = `${this.baseUrl}/submissions/CIK${cik}.json`;
+      logger.info(`Fetching SEC company profile from URL: ${url}`); // Log the URL
+      const response = await axios.get(url, {
         headers: { 'User-Agent': this.userAgent },
       });
       return this.processCompanyProfile(response.data);
@@ -32,17 +34,7 @@ class SECService {
     };
   }
 
-  async fetchSECData(cik) {
-    const url = `${this.baseUrl}/submissions/CIK${cik}.json`;
-
-    try {
-      const response = await axios.get(url, { headers: { 'User-Agent': this.userAgent } });
-      return response.data;
-    } catch (error) {
-      logger.error(`Error fetching SEC data for CIK ${cik}: ${error.message}`);
-      throw new Error('SEC Data Fetch Failed');
-    }
-  }
+  // Other methods remain unchanged...
 }
 
 module.exports = new SECService();

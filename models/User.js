@@ -1,42 +1,52 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
-    required: true,
+    required: [true, 'Email is required'],
     unique: true,
+    lowercase: true,
     trim: true,
-    lowercase: true
+    match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email']
   },
   password: {
     type: String,
-    required: true,
-    minlength: 8
+    required: [true, 'Password is required'],
+    minlength: [8, 'Password must be at least 8 characters']
   },
-  firstName: {
+  name: {
     type: String,
     trim: true
   },
-  lastName: {
+  role: {
     type: String,
-    trim: true
+    enum: ['user', 'admin'],
+    default: 'user'
   },
   preferences: {
-    type: Map,
-    of: String,
-    default: new Map()
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
+    notifications: {
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
+    },
+    theme: {
+      type: String,
+      enum: ['light', 'dark'],
+      default: 'light'
+    }
   },
   lastLogin: {
     type: Date
+  },
+  isActive: {
+    type: Boolean,
+    default: true
   }
+}, {
+  timestamps: true
 });
 
-// Hash password before saving
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
     return next();
@@ -51,26 +61,31 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Compare password method
 userSchema.methods.comparePassword = async function(candidatePassword) {
   try {
-    return await bcrypt.compare(candidatePassword, this.password);
+    const isMatch = await bcrypt.compare(candidatePassword, this.password);
+    if (!isMatch) {
+      throw new Error('Password comparison failed');
+    }
+    return isMatch;
   } catch (error) {
     throw new Error('Password comparison failed');
   }
 };
 
-// Update last login
-userSchema.methods.updateLastLogin = async function() {
-  this.lastLogin = new Date();
-  return this.save();
+userSchema.methods.generateAuthToken = function() {
+  return jwt.sign(
+    { userId: this._id, role: this.role },
+    process.env.JWT_SECRET,
+    { expiresIn: '1h' }
+  );
 };
 
-// Get full name
-userSchema.methods.getFullName = function() {
-  return `${this.firstName || ''} ${this.lastName || ''}`.trim();
+userSchema.methods.toJSON = function() {
+  const userObject = this.toObject();
+  delete userObject.password;
+  return userObject;
 };
 
 const User = mongoose.model('User', userSchema);
-
 module.exports = User;

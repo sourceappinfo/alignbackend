@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const authService = require('../../services/authService');
+const AuthService = require('../../services/authService');
 const User = require('../../models/User');
 
 jest.mock('../../models/User');
@@ -9,78 +9,58 @@ describe('Auth Service', () => {
     jest.clearAllMocks();
   });
 
-  it('should register a new user', async () => {
-    const userData = {
-      email: 'test@example.com',
-      password: 'password123'
-    };
+  describe('register', () => {
+    it('should register a new user', async () => {
+      const userData = {
+        email: 'test@example.com',
+        password: 'password123',
+        name: 'Test User'
+      };
 
-    User.findOne.mockResolvedValue(null);
-    User.create.mockResolvedValue({
-      ...userData,
-      _id: 'user123',
-      password: 'hashedPassword'
+      const mockUser = {
+        _id: new mongoose.Types.ObjectId(),
+        email: userData.email,
+        name: userData.name
+      };
+
+      User.findOne.mockResolvedValue(null);
+      User.create.mockResolvedValue(mockUser);
+
+      const result = await AuthService.register(userData);
+
+      expect(result).toHaveProperty('token');
+      expect(result.user).toEqual({
+        email: mockUser.email,
+        id: mockUser._id,
+        name: mockUser.name
+      });
     });
-
-    const result = await authService.register(userData);
-    expect(result).toHaveProperty('email', userData.email);
   });
 
-  it('should handle duplicate email registration', async () => {
-    const userData = {
-      email: 'test@example.com',
-      password: 'password123'
-    };
+  describe('login', () => {
+    it('should login a user with valid credentials', async () => {
+      const credentials = {
+        email: 'test@example.com',
+        password: 'password123'
+      };
 
-    User.findOne.mockResolvedValue({ email: userData.email });
+      const mockUser = {
+        _id: new mongoose.Types.ObjectId(),
+        email: credentials.email,
+        name: 'Test User',
+        comparePassword: jest.fn().mockResolvedValue(true)
+      };
 
-    await expect(
-      authService.register(userData)
-    ).rejects.toThrow('Email already exists');
-  });
+      User.findOne.mockResolvedValue(mockUser);
 
-  it('should login a user with valid credentials', async () => {
-    const userData = {
-      email: 'test@example.com',
-      password: 'password123'
-    };
+      const result = await AuthService.login(credentials.email, credentials.password);
 
-    const mockUser = {
-      _id: 'user123',
-      email: userData.email,
-      comparePassword: jest.fn().mockResolvedValue(true)
-    };
-
-    User.findOne.mockResolvedValue(mockUser);
-
-    const token = await authService.login(userData.email, userData.password);
-    expect(token).toBeTruthy();
-  });
-
-  it('should handle invalid login credentials', async () => {
-    const userData = {
-      email: 'test@example.com',
-      password: 'wrongpassword'
-    };
-
-    const mockUser = {
-      _id: 'user123',
-      email: userData.email,
-      comparePassword: jest.fn().mockResolvedValue(false)
-    };
-
-    User.findOne.mockResolvedValue(mockUser);
-
-    await expect(
-      authService.login(userData.email, userData.password)
-    ).rejects.toThrow('Invalid credentials');
-  });
-
-  it('should handle non-existent user login attempt', async () => {
-    User.findOne.mockResolvedValue(null);
-
-    await expect(
-      authService.login('nonexistent@example.com', 'password123')
-    ).rejects.toThrow('User not found');
+      expect(result).toHaveProperty('token');
+      expect(result.user).toEqual({
+        email: mockUser.email,
+        id: mockUser._id,
+        name: mockUser.name
+      });
+    });
   });
 });

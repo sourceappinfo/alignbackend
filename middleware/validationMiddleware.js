@@ -1,29 +1,78 @@
 const { ValidationError } = require('../utils/errorTypes');
+const logger = require('../utils/logger');
 
-const validationMiddleware = async (req, res, next) => {
-  try {
-    // Add your validation logic here
-    const { email, password } = req.body;
+const validationMiddleware = (validations) => {
+  return async (req, res, next) => {
+    try {
+      const errors = [];
+      
+      for (const field in validations) {
+        const value = req.body[field];
+        const rules = validations[field];
 
-    if (!email || !password) {
-      throw new ValidationError('Email and password are required');
+        if (rules.required && !value) {
+          errors.push(`${field} is required`);
+          continue;
+        }
+
+        if (value) {
+          if (rules.type && typeof value !== rules.type) {
+            errors.push(`${field} must be of type ${rules.type}`);
+          }
+
+          if (rules.min && value.length < rules.min) {
+            errors.push(`${field} must be at least ${rules.min} characters`);
+          }
+
+          if (rules.max && value.length > rules.max) {
+            errors.push(`${field} must be no more than ${rules.max} characters`);
+          }
+
+          if (rules.pattern && !rules.pattern.test(value)) {
+            errors.push(`${field} format is invalid`);
+          }
+
+          if (rules.custom) {
+            const customError = await rules.custom(value);
+            if (customError) {
+              errors.push(customError);
+            }
+          }
+        }
+      }
+
+      if (errors.length > 0) {
+        throw new ValidationError(errors.join(', '));
+      }
+
+      next();
+    } catch (error) {
+      logger.error(`Validation error: ${error.message}`);
+      res.status(400).json({
+        success: false,
+        error: error.message
+      });
     }
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      throw new ValidationError('Invalid email format');
-    }
-
-    // Password validation
-    if (password.length < 8) {
-      throw new ValidationError('Password must be at least 8 characters long');
-    }
-
-    next();
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
+  };
 };
 
-module.exports = { validationMiddleware };
+// Example usage:
+const loginValidation = validationMiddleware({
+  email: {
+    required: true,
+    type: 'string',
+    pattern: /^\S+@\S+\.\S+$/,
+    max: 255
+  },
+  password: {
+    required: true,
+    type: 'string',
+    min: 8,
+    max: 128
+  }
+});
+
+module.exports = {
+  validationMiddleware,
+  loginValidation
+};

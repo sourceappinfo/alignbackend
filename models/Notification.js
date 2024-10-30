@@ -4,21 +4,25 @@ const mongoose = require('mongoose');
 const notificationSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
+    required: true,
     ref: 'User',
-    required: true
+    index: true, // Adding index for quicker queries
   },
   message: {
     type: String,
-    required: true
+    required: true,
+    maxlength: 500, // Added constraint to avoid oversized messages
+  },
+  title: {
+    type: String,
+    default: 'New Alert',
+    maxlength: 100,
   },
   read: {
     type: Boolean,
-    default: false
+    default: false,
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
+}, { timestamps: true }); // Using timestamps for createdAt and updatedAt
 
-module.exports = mongoose.model('Notification', notificationSchema);
+const Notification = mongoose.model('Notification', notificationSchema);
+module.exports = Notification;

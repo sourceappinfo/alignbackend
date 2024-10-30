@@ -1,10 +1,24 @@
 const logger = require('../../utils/logger');
 
 describe('Logger Utility', () => {
+  let consoleLogSpy;
+
+  beforeEach(() => {
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+    logger.silent = false;
+  });
+
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+    logger.silent = true;
+  });
+
   it('should log an info message', () => {
-    const consoleSpy = jest.spyOn(console, 'log');
-    logger.info('Test info message');
-    expect(consoleSpy).toHaveBeenCalledWith('INFO: Test info message');
-    consoleSpy.mockRestore();
+    const testMessage = 'Test info message';
+    logger.info(testMessage);
+
+    expect(consoleLogSpy).toHaveBeenCalled();
+    const logCall = consoleLogSpy.mock.calls[0][0];
+    expect(logCall).toContain(testMessage);
   });
 });

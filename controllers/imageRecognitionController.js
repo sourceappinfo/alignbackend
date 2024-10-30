@@ -1,4 +1,5 @@
 const imageRecognitionService = require('../services/imageRecognitionService');
+const logger = require('../utils/logger');
 
 const analyzeImage = async (req, res) => {
   try {

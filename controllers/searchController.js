@@ -1,5 +1,6 @@
 const Company = require('../models/Company');
 const User = require('../models/User');
+const logger = require('../utils/logger');
 const { formatResponse } = require('../utils/responseFormatter');
 
 exports.search = async (req, res) => {

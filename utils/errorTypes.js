@@ -1,36 +1,40 @@
 // utils/errorTypes.js
 
-class AppError extends Error {
-    constructor(message, statusCode) {
-      super(message);
-      this.statusCode = statusCode;
-      this.isOperational = true;
-      Error.captureStackTrace(this, this.constructor);
-    }
+class ValidationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ValidationError';
+    this.statusCode = 400;
   }
-  
-  class ValidationError extends AppError {
-    constructor(message = 'Validation Error') {
-      super(message, 400);
-    }
+}
+
+class AuthenticationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'AuthenticationError';
+    this.statusCode = 401;
   }
-  
-  class AuthenticationError extends AppError {
-    constructor(message = 'Authentication Error') {
-      super(message, 401);
-    }
+}
+
+class NotFoundError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'NotFoundError';
+    this.statusCode = 404;
   }
-  
-  class AuthorizationError extends AppError {
-    constructor(message = 'Authorization Error') {
-      super(message, 403);
-    }
+}
+
+class InternalServerError extends Error {
+  constructor(message = 'Internal Server Error') {
+    super(message);
+    this.name = 'InternalServerError';
+    this.statusCode = 500;
   }
-  
-  module.exports = {
-    AppError,
-    ValidationError,
-    AuthenticationError,
-    AuthorizationError,
-  };
-  
+}
+
+module.exports = {
+  ValidationError,
+  AuthenticationError,
+  NotFoundError,
+  InternalServerError
+};

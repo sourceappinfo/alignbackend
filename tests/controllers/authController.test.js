@@ -1,22 +1,23 @@
+// tests/controllers/authController.test.js
 const request = require('supertest');
-const app = require('../../server');
+const app = require('../../app'); // Assuming you have an express app in app.js
 
-describe('Auth Controller', () => {
+describe('AuthController', () => {
   it('should register a new user', async () => {
-    const response = await request(app)
-      .post('/api/auth/register')
+    const res = await request(app)
+      .post('/auth/register')
       .send({ email: 'test@example.com', password: 'password123' });
 
-    expect(response.status).toBe(201);
-    expect(response.body).toHaveProperty('token');
+    expect(res.statusCode).toEqual(201);
+    expect(res.body.success).toBe(true);
   });
 
-  it('should login a user', async () => {
-    const response = await request(app)
-      .post('/api/auth/login')
-      .send({ email: 'test@example.com', password: 'password123' });
+  it('should login with valid credentials', async () => {
+    await request(app).post('/auth/register').send({ email: 'test@example.com', password: 'password123' });
+    const res = await request(app).post('/auth/login').send({ email: 'test@example.com', password: 'password123' });
 
-    expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty('token');
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.token).toBeDefined();
   });
 });

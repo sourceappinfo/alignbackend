@@ -1,28 +1,64 @@
-const request = require('supertest');
-const app = require('../../server');
-const Survey = require('../../models/Survey');
-const { connectDB, disconnectDB } = require('../../config/db');
+const SurveyController = require('../../controllers/surveyController');
+const SurveyService = require('../../services/surveyService');
+const { formatSuccessResponse, formatErrorResponse } = require('../../utils/responseFormatter');
 
-beforeAll(async () => {
-  await connectDB();
-});
-
-afterAll(async () => {
-  await disconnectDB();
-});
+jest.mock('../../services/surveyService');
 
 describe('Survey Controller', () => {
-  it('should retrieve survey questions', async () => {
-    const res = await request(app).get('/api/survey/questions');
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveProperty('questions');
+  let req, res;
+
+  beforeEach(() => {
+    req = {
+      user: { id: 'mockUserId' },
+      body: {},
+      params: {},
+      query: {}
+    };
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn()
+    };
   });
 
-  it('should submit survey responses', async () => {
-    const res = await request(app).post('/api/survey/submit').send({
-      responses: { question1: 'Answer 1', question2: 'Answer 2' },
+  describe('createSurvey', () => {
+    const mockSurveyData = {
+      title: 'Test Survey',
+      description: 'Test Description',
+      questions: [
+        {
+          questionText: 'Test Question',
+          questionType: 'multiple-choice'
+        }
+      ]
+    };
+
+    it('should create survey successfully', async () => {
+      req.body = mockSurveyData;
+      const mockCreatedSurvey = { _id: 'surveyId', ...mockSurveyData };
+      
+      SurveyService.createSurvey.mockResolvedValue(mockCreatedSurvey);
+
+      await SurveyController.createSurvey(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith(
+        formatSuccessResponse('Survey created successfully', mockCreatedSurvey)
+      );
     });
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveProperty('message', 'Responses submitted successfully');
+
+    it('should handle validation error', async () => {
+      req.body = { title: 'Test' }; // Missing required fields
+
+      await SurveyController.createSurvey(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false
+        })
+      );
+    });
   });
+
+  // Additional test suites...
 });

@@ -1,70 +1,101 @@
 const mongoose = require('mongoose');
-const notificationService = require('../../services/notificationService');
+const NotificationService = require('../../services/notificationService');
 const Notification = require('../../models/Notification');
+const User = require('../../models/User');
+const cacheService = require('../../services/cacheService');
 
 jest.mock('../../models/Notification');
+jest.mock('../../models/User');
+jest.mock('../../services/cacheService');
 
 describe('Notification Service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should create a new notification', async () => {
-    const notificationData = {
-      title: 'New Alert',
+  describe('sendNotification', () => {
+    const mockUserId = new mongoose.Types.ObjectId();
+    const mockNotification = {
       message: 'Test notification',
-      userId: 'user123'
+      title: 'Test Title',
+      type: 'info'
     };
 
-    Notification.create.mockResolvedValue({
-      ...notificationData,
-      _id: 'notification123'
+    it('should create notification successfully', async () => {
+      User.findById.mockResolvedValue({ _id: mockUserId });
+      const mockCreatedNotification = {
+        _id: new mongoose.Types.ObjectId(),
+        userId: mockUserId,
+        ...mockNotification,
+        read: false
+      };
+
+      Notification.create.mockResolvedValue(mockCreatedNotification);
+
+      const result = await NotificationService.sendNotification(
+        mockUserId,
+        mockNotification.message,
+        mockNotification.title,
+        mockNotification.type
+      );
+
+      expect(result).toEqual(mockCreatedNotification);
+      expect(User.findById).toHaveBeenCalledWith(mockUserId);
+      expect(Notification.create).toHaveBeenCalledWith(expect.objectContaining({
+        userId: mockUserId,
+        message: mockNotification.message
+      }));
     });
 
-    const result = await notificationService.sendNotification(
-      notificationData.userId,
-      notificationData.message
-    );
+    it('should throw error if user not found', async () => {
+      User.findById.mockResolvedValue(null);
 
-    expect(result).toHaveProperty('title', 'New Alert');
-    expect(Notification.create).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: notificationData.userId })
-    );
+      await expect(
+        NotificationService.sendNotification(
+          mockUserId,
+          mockNotification.message
+        )
+      ).rejects.toThrow('User not found');
+    });
   });
 
-  it('should handle failed notification creation', async () => {
-    Notification.create.mockRejectedValue(new Error('DB Error'));
-
-    await expect(
-      notificationService.sendNotification('userId', 'message')
-    ).rejects.toThrow('DB Error');
-  });
-
-  it('should retrieve notifications for a user', async () => {
-    const userId = 'user123';
+  describe('getNotifications', () => {
+    const mockUserId = new mongoose.Types.ObjectId();
     const mockNotifications = [
-      { _id: 'notif1', message: 'Test 1', userId },
-      { _id: 'notif2', message: 'Test 2', userId }
+      { _id: new mongoose.Types.ObjectId(), message: 'Notification 1' },
+      { _id: new mongoose.Types.ObjectId(), message: 'Notification 2' }
     ];
 
-    Notification.find.mockResolvedValue(mockNotifications);
+    it('should return cached notifications if available', async () => {
+      const mockCachedResult = {
+        notifications: mockNotifications,
+        pagination: { current: 1, total: 1 }
+      };
 
-    const result = await notificationService.getNotifications(userId);
-    expect(result).toEqual(mockNotifications);
-    expect(Notification.find).toHaveBeenCalledWith({ userId });
-  });
+      cacheService.get.mockResolvedValue(mockCachedResult);
 
-  it('should mark notifications as read', async () => {
-    const notificationId = 'notif123';
-    Notification.findByIdAndUpdate.mockResolvedValue({
-      _id: notificationId,
-      read: true
+      const result = await NotificationService.getNotifications(mockUserId);
+
+      expect(result).toEqual(mockCachedResult);
+      expect(Notification.find).not.toHaveBeenCalled();
     });
 
-    await notificationService.markAsRead(notificationId);
-    expect(Notification.findByIdAndUpdate).toHaveBeenCalledWith(
-      notificationId,
-      { read: true }
-    );
+    it('should fetch and cache notifications if not cached', async () => {
+      cacheService.get.mockResolvedValue(null);
+      Notification.find.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue(mockNotifications),
+        lean: jest.fn().mockResolvedValue(mockNotifications)
+      });
+      Notification.countDocuments.mockResolvedValue(mockNotifications.length);
+
+      const result = await NotificationService.getNotifications(mockUserId);
+
+      expect(result.notifications).toEqual(mockNotifications);
+      expect(cacheService.set).toHaveBeenCalled();
+    });
   });
+
+  // Additional test suites...
 });

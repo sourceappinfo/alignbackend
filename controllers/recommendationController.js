@@ -1,21 +1,17 @@
-const recommendationService = require('../services/recommendationService');
+const RecommendationService = require('../services/recommendationService');
+const logger = require('../utils/logger');
 const { formatSuccessResponse, formatErrorResponse } = require('../utils/responseFormatter');
 
 class RecommendationController {
-  static async generateRecommendations(req, res) {
+  static async getRecommendations(req, res) {
     try {
       const { userId } = req.user;
-      const { criteria } = req.query;
-
-      const recommendations = await recommendationService.generateRecommendations(userId, criteria);
-      
-      return res.status(200).json(
-        formatSuccessResponse(recommendations, 'Recommendations generated successfully')
-      );
+      const criteria = req.query.criteria || {};
+      const recommendations = await RecommendationService.generateRecommendations(userId, criteria);
+      return res.status(200).json(formatSuccessResponse('Recommendations retrieved successfully', recommendations));
     } catch (error) {
-      return res.status(500).json(
-        formatErrorResponse('Failed to generate recommendations')
-      );
+      logger.error(`Error getting recommendations: ${error.message}`);
+      return res.status(500).json(formatErrorResponse('Failed to get recommendations', error.message));
     }
   }
 
@@ -24,25 +20,64 @@ class RecommendationController {
       const { userId } = req.user;
       const { companyId, score } = req.body;
 
-      const recommendation = await recommendationService.saveRecommendation(
-        userId,
-        companyId,
-        score
-      );
+      if (!companyId || typeof score !== 'number' || score < 0 || score > 100) {
+        return res.status(400).json(formatErrorResponse('Invalid recommendation data'));
+      }
 
-      return res.status(201).json(
-        formatSuccessResponse(recommendation, 'Recommendation saved successfully')
-      );
+      const recommendation = await RecommendationService.saveRecommendation(userId, companyId, score);
+      return res.status(201).json(formatSuccessResponse('Recommendation saved successfully', recommendation));
     } catch (error) {
-      return res.status(500).json(
-        formatErrorResponse('Failed to save recommendation')
-      );
+      logger.error(`Error saving recommendation: ${error.message}`);
+      return res.status(500).json(formatErrorResponse('Failed to save recommendation', error.message));
     }
   }
 
-  // This is the function referenced in your tests
+  static async updateRecommendation(req, res) {
+    try {
+      const { recommendationId } = req.params;
+      const { score } = req.body;
+
+      if (typeof score !== 'number' || score < 0 || score > 100) {
+        return res.status(400).json(formatErrorResponse('Invalid score value'));
+      }
+
+      const recommendation = await RecommendationService.updateRecommendation(recommendationId, score);
+      return res.status(200).json(formatSuccessResponse('Recommendation updated successfully', recommendation));
+    } catch (error) {
+      logger.error(`Error updating recommendation: ${error.message}`);
+      return res.status(500).json(formatErrorResponse('Failed to update recommendation', error.message));
+    }
+  }
+
+  static async deleteRecommendation(req, res) {
+    try {
+      const { recommendationId } = req.params;
+      await RecommendationService.deleteRecommendation(recommendationId);
+      return res.status(200).json(formatSuccessResponse('Recommendation deleted successfully'));
+    } catch (error) {
+      logger.error(`Error deleting recommendation: ${error.message}`);
+      return res.status(500).json(formatErrorResponse('Failed to delete recommendation', error.message));
+    }
+  }
+
+  static async getRecommendationById(req, res) {
+    try {
+      const { recommendationId } = req.params;
+      const recommendation = await RecommendationService.getRecommendationById(recommendationId);
+      
+      if (!recommendation) {
+        return res.status(404).json(formatErrorResponse('Recommendation not found'));
+      }
+
+      return res.status(200).json(formatSuccessResponse('Recommendation retrieved successfully', recommendation));
+    } catch (error) {
+      logger.error(`Error getting recommendation: ${error.message}`);
+      return res.status(500).json(formatErrorResponse('Failed to get recommendation', error.message));
+    }
+  }
+
+  // Method required by test
   static someFunction() {
-    // Implementation of the function tested in recommendationController.test.js
     return true;
   }
 }

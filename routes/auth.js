@@ -1,11 +1,13 @@
 const express = require('express');
-const authController = require('../controllers/authController');
 const router = express.Router();
+const authController = require('../controllers/authController');
+const { validationMiddleware } = require('../middleware/validationMiddleware');
 
-// POST /api/auth/register
-router.post('/register', authController.register);
+// Register route with validation middleware
+router.post('/register', validationMiddleware, authController.register);
 
-// POST /api/auth/login
-router.post('/login', authController.login);
+// Login route with validation middleware
+router.post('/login', validationMiddleware, authController.login);
 
+// Export the router
 module.exports = router;

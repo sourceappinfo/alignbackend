@@ -1,29 +1,29 @@
+// middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
-const { AuthenticationError } = require('../utils/errorTypes');
+const { formatErrorResponse } = require('../utils/responseFormatter');
+const logger = require('../utils/logger');
 
 const authMiddleware = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) {
+    return res.status(401).json(formatErrorResponse('Unauthorized: No token provided'));
+  }
+
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      throw new AuthenticationError('No authorization header');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+
+    // Optional: Refresh token if near expiry
+    const expirationThreshold = 10 * 60; // 10 minutes
+    const expiresIn = decoded.exp - Math.floor(Date.now() / 1000);
+    if (expiresIn < expirationThreshold) {
+      req.newToken = jwt.sign({ userId: decoded.userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
     }
 
-    const token = authHeader.startsWith('Bearer ')
-      ? authHeader.slice(7)
-      : authHeader;
-
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = decoded;
-      next();
-    } catch (error) {
-      throw new AuthenticationError('Invalid token');
-    }
+    next();
   } catch (error) {
-    res.status(401).json({
-      status: 'error',
-      message: error.message
-    });
+    logger.error(`Auth error: ${error.message}`);
+    return res.status(401).json(formatErrorResponse('Unauthorized: Invalid token'));
   }
 };
 

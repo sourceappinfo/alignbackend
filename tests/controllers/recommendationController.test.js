@@ -1,31 +1,25 @@
-// tests/controllers/recommendationController.test.js
-const recommendationController = require('../../controllers/recommendationController');
+const request = require('supertest');
+const express = require('express');
+const recommendationRoutes = require('../../controllers/recommendationController');
 const recommendationService = require('../../services/recommendationService');
 
 jest.mock('../../services/recommendationService');
-jest.mock('../../utils/responseFormatter', () => ({
-  formatSuccessResponse: jest.fn().mockImplementation((data, message) => ({
-    status: 'success',
-    data,
-    message
-  })),
-  formatErrorResponse: jest.fn().mockImplementation((message) => ({
-    status: 'error',
-    message
-  }))
-}));
+jest.mock('../../middleware/authMiddleware', () => (req, res, next) => {
+  req.user = { userId: 'testUser' };
+  next();
+});
+
+const app = express();
+app.use(express.json());
+app.use('/api/recommendations', recommendationRoutes);
 
 describe('Recommendation Controller', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should have a defined recommendation function', () => {
-    expect(typeof recommendationController.someFunction).toBe('function');
-  });
-
-  describe('Generate Recommendations', () => {
-    it('should generate recommendations successfully', async () => {
+  describe('GET /', () => {
+    it('should get recommendations successfully', async () => {
       const mockRecommendations = [
         { companyId: 'company1', score: 0.9 },
         { companyId: 'company2', score: 0.8 }
@@ -33,42 +27,27 @@ describe('Recommendation Controller', () => {
       
       recommendationService.generateRecommendations.mockResolvedValue(mockRecommendations);
 
-      const req = {
-        user: { userId: 'testUser' },
-        query: { criteria: { industry: 'Tech' } }
-      };
-      const res = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn()
-      };
+      const response = await request(app)
+        .get('/api/recommendations')
+        .query({ criteria: { industry: 'Tech' } });
 
-      await recommendationController.generateRecommendations(req, res);
-      
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json).toHaveBeenCalled();
+      expect(response.statusCode).toBe(200);
+      expect(response.body.data).toEqual(mockRecommendations);
     });
 
-    it('should handle recommendation generation errors', async () => {
-      const req = {
-        user: { userId: 'testUser' },
-        query: {}
-      };
-      const res = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn()
-      };
-
+    it('should handle recommendation errors', async () => {
       recommendationService.generateRecommendations
         .mockRejectedValue(new Error('Service error'));
 
-      await recommendationController.generateRecommendations(req, res);
-      
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalled();
+      const response = await request(app)
+        .get('/api/recommendations');
+
+      expect(response.statusCode).toBe(500);
+      expect(response.body.status).toBe('error');
     });
   });
 
-  describe('Save Recommendation', () => {
+  describe('POST /', () => {
     it('should save recommendation successfully', async () => {
       const mockRecommendation = {
         userId: 'testUser',
@@ -78,19 +57,29 @@ describe('Recommendation Controller', () => {
       
       recommendationService.saveRecommendation.mockResolvedValue(mockRecommendation);
 
-      const req = {
-        user: { userId: 'testUser' },
-        body: { companyId: 'company1', score: 85 }
-      };
-      const res = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn()
-      };
+      const response = await request(app)
+        .post('/api/recommendations')
+        .send({ companyId: 'company1', score: 85 });
 
-      await recommendationController.saveRecommendation(req, res);
-      
-      expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalled();
+      expect(response.statusCode).toBe(201);
+      expect(response.body.data).toEqual(mockRecommendation);
     });
+
+    it('should handle save errors', async () => {
+      recommendationService.saveRecommendation
+        .mockRejectedValue(new Error('Save error'));
+
+      const response = await request(app)
+        .post('/api/recommendations')
+        .send({ companyId: 'company1', score: 85 });
+
+      expect(response.statusCode).toBe(500);
+      expect(response.body.status).toBe('error');
+    });
+  });
+
+  // For compatibility with existing tests
+  it('should have a defined recommendation function', () => {
+    expect(typeof recommendationRoutes.someFunction).toBe('function');
   });
 });

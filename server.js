@@ -1,57 +1,42 @@
-const express = require('express');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
-const rateLimiter = require('./middleware/rateLimiter');
+// server.js
+require('dotenv').config();
+const app = require('./app');
 const logger = require('./utils/logger');
-const redis = require('redis');
+const { connectDB } = require('./config/db');
 
-// Load environment variables
-dotenv.config();
-
-// Initialize the app
-const app = express();
-
-// Connect to the database
-connectDB();
-
-// Redis configuration (optional, if needed for caching)
-const redisClient = redis.createClient({
-  host: process.env.REDIS_HOST,
-  port: process.env.REDIS_PORT,
-  password: process.env.REDIS_PASSWORD,
-});
-redisClient.on('connect', () => logger.info('Connected to Redis'));
-redisClient.on('error', (err) => logger.error(`Redis error: ${err}`));
-
-// Middleware to parse JSON
-app.use(express.json());
-
-// Apply rate limiting middleware
-app.use(rateLimiter);
-
-// Define routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/companies', require('./routes/company'));
-app.use('/api/users', require('./routes/user'));
-app.use('/api/search', require('./routes/search'));
-app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/image-recognition', require('./routes/imageRecognition'));
-
-// Health check route to ensure the server is running
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', database: 'connected' });
+// Verify essential environment variables
+const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET', 'PORT'];
+requiredEnvVars.forEach((key) => {
+    if (!process.env[key]) {
+        logger.error(`Environment variable ${key} is missing.`);
+        process.exit(1);
+    }
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  logger.error(err.message);
-  res.status(500).json({ error: 'Internal Server Error' });
-});
+// Connect to database if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+    connectDB();
+}
 
-// Define a port
 const PORT = process.env.PORT || 5000;
-
-// Start the server
-app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
+const server = app.listen(PORT, () => {
+    logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
 });
+
+// Graceful shutdown
+const gracefulShutdown = async (signal) => {
+    logger.info(`Received ${signal}. Starting graceful shutdown...`);
+    try {
+        await server.close();
+        logger.info('Server closed successfully');
+        process.exit(0);
+    } catch (error) {
+        logger.error('Error during shutdown:', error);
+        process.exit(1);
+    }
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+module.exports = server;

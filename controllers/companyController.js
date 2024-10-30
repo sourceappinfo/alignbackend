@@ -1,6 +1,7 @@
 // controllers/companyController.js
 const Company = require('../models/Company');
 const SECService = require('../services/secService');
+const logger = require('../utils/logger');
 const { formatResponse } = require('../utils/responseFormatter');
 
 exports.updateCompanyData = async (cik) => {
@@ -14,7 +15,7 @@ exports.updateCompanyData = async (cik) => {
     });
     return company;
   } catch (error) {
-    console.error(`Error updating data for CIK ${cik}:`, error);
+    logger.error(`Error updating data for CIK ${cik}: ${error.message}`); // Added logging
     throw error;
   }
 };

@@ -1,11 +1,15 @@
-const errorHandler = (err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'An unexpected error occurred';
+// middleware/errorHandler.js
+const { formatErrorResponse } = require('../utils/responseFormatter');
+const logger = require('../utils/logger');
 
-  res.status(statusCode).json({
-    status: 'error',
-    message: message
-  });
+const errorHandler = (err, req, res, next) => {
+  logger.error(`Error encountered: ${err.message}`);
+
+  if (err.statusCode) {
+    return res.status(err.statusCode).json(formatErrorResponse(err.message));
+  }
+
+  res.status(500).json(formatErrorResponse('An unexpected error occurred'));
 };
 
 module.exports = errorHandler;
