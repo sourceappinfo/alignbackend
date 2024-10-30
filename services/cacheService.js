@@ -3,28 +3,33 @@ const logger = require('../utils/logger');
 
 class CacheService {
   constructor() {
-    this.client = new Redis({
-      host: process.env.REDIS_HOST,
-      port: process.env.REDIS_PORT,
-      password: process.env.REDIS_PASSWORD,
-      maxRetriesPerRequest: 1,
-      connectTimeout: 5000,
-      enableOfflineQueue: false,
-      retryStrategy(times) {
-        if (times > 3) {
-          return null;
+    if (process.env.NODE_ENV === 'test') {
+      const RedisMock = require('ioredis-mock');
+      this.client = new RedisMock();
+    } else {
+      this.client = new Redis({
+        host: process.env.REDIS_HOST,
+        port: process.env.REDIS_PORT,
+        password: process.env.REDIS_PASSWORD,
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,
+        lazyConnect: true,
+        retryStrategy(times) {
+          if (times > 3) {
+            return null;
+          }
+          return Math.min(times * 100, 3000);
         }
-        return Math.min(times * 100, 3000);
-      }
-    });
+      });
 
-    this.client.on('error', (err) => {
-      logger.error('Redis Client Error:', err);
-    });
+      this.client.on('error', (err) => {
+        logger.error('Redis Client Error:', err);
+      });
 
-    this.client.on('connect', () => {
-      logger.info('Redis Client Connected');
-    });
+      this.client.on('connect', () => {
+        logger.info('Redis Client Connected');
+      });
+    }
   }
 
   async set(key, value, ttl = 3600) {
