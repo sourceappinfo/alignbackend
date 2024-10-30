@@ -1,125 +1,217 @@
-const Redis = require('ioredis');
-const logger = require('../utils/logger');
+const User = require('../../models/User');
+const userController = require('../../controllers/userController');
+const { formatSuccessResponse, formatErrorResponse } = require('../../utils/responseFormatter');
+const { ValidationError } = require('../../utils/errorTypes');
 
-class CacheService {
-  constructor() {
-    if (process.env.NODE_ENV === 'test') {
-      const RedisMock = require('ioredis-mock');
-      this.client = new RedisMock();
-    } else {
-      this.client = new Redis({
-        host: process.env.REDIS_HOST,
-        port: process.env.REDIS_PORT,
-        password: process.env.REDIS_PASSWORD,
-        maxRetriesPerRequest: 1,
-        enableOfflineQueue: false,
-        lazyConnect: true,
-        retryStrategy(times) {
-          if (times > 3) {
-            return null;
-          }
-          return Math.min(times * 100, 3000);
-        }
+jest.mock('../../models/User');
+
+describe('User Controller', () => {
+  let mockUser;
+  let req;
+  let res;
+
+  beforeEach(() => {
+    mockUser = {
+      _id: 'mockUserId',
+      email: 'test@example.com',
+      name: 'Test User',
+      preferences: {
+        notifications: {
+          email: true,
+          push: true
+        },
+        theme: 'light'
+      }
+    };
+
+    req = {
+      user: { id: 'mockUserId' },
+      body: {},
+      params: {}
+    };
+
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn()
+    };
+
+    jest.clearAllMocks();
+  });
+
+  describe('getUserProfile', () => {
+    it('should get user profile successfully', async () => {
+      const mockQueryChain = {
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue(mockUser)
+      };
+      
+      User.findById.mockReturnValue(mockQueryChain);
+
+      await userController.getUserProfile(req, res);
+
+      expect(User.findById).toHaveBeenCalledWith('mockUserId');
+      expect(mockQueryChain.select).toHaveBeenCalledWith('-password');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        formatSuccessResponse('User profile retrieved successfully', mockUser)
+      );
+    });
+
+    it('should handle user not found', async () => {
+      const mockQueryChain = {
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue(null)
+      };
+      
+      User.findById.mockReturnValue(mockQueryChain);
+
+      await userController.getUserProfile(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith(
+        formatErrorResponse('User not found')
+      );
+    });
+
+    it('should handle database errors', async () => {
+      const mockQueryChain = {
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockRejectedValue(new Error('Database error'))
+      };
+      
+      User.findById.mockReturnValue(mockQueryChain);
+
+      await userController.getUserProfile(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        formatErrorResponse('Failed to retrieve user profile')
+      );
+    });
+  });
+
+  describe('updateUserProfile', () => {
+    beforeEach(() => {
+      req.body = {
+        name: 'Updated Name',
+        email: 'updated@example.com'
+      };
+    });
+
+    it('should update profile successfully', async () => {
+      const updatedUser = { ...mockUser, ...req.body };
+      User.findById.mockResolvedValue({
+        ...mockUser,
+        save: jest.fn().mockResolvedValue(updatedUser)
       });
 
-      this.client.on('error', (err) => {
-        logger.error('Redis Client Error:', err);
-      });
+      await userController.updateUserProfile(req, res);
 
-      this.client.on('connect', () => {
-        logger.info('Redis Client Connected');
-      });
-    }
-  }
+      expect(User.findById).toHaveBeenCalledWith('mockUserId');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        formatSuccessResponse('Profile updated successfully', updatedUser)
+      );
+    });
 
-  async set(key, value, ttl = 3600) {
-    try {
-      const serializedValue = JSON.stringify(value);
-      if (ttl) {
-        await this.client.set(key, serializedValue, 'EX', ttl);
-      } else {
-        await this.client.set(key, serializedValue);
-      }
-      return true;
-    } catch (error) {
-      logger.error(`Cache set error: ${error.message}`);
-      return false;
-    }
-  }
+    it('should validate allowed updates', async () => {
+      req.body.invalidField = 'invalid';
 
-  async get(key) {
-    try {
-      const data = await this.client.get(key);
-      return data ? JSON.parse(data) : null;
-    } catch (error) {
-      logger.error(`Cache get error: ${error.message}`);
-      return null;
-    }
-  }
+      await userController.updateUserProfile(req, res);
 
-  async del(key) {
-    try {
-      await this.client.del(key);
-      return true;
-    } catch (error) {
-      logger.error(`Cache delete error: ${error.message}`);
-      return false;
-    }
-  }
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        formatErrorResponse('Invalid updates')
+      );
+    });
 
-  async clear(pattern = '*') {
-    try {
-      const keys = await this.client.keys(pattern);
-      if (keys.length > 0) {
-        await this.client.del(keys);
-      }
-      return true;
-    } catch (error) {
-      logger.error(`Cache clear error: ${error.message}`);
-      return false;
-    }
-  }
+    it('should handle validation errors', async () => {
+      const mockUser = {
+        ...mockUser,
+        save: jest.fn().mockRejectedValue(new ValidationError('Invalid email format'))
+      };
+      User.findById.mockResolvedValue(mockUser);
 
-  async exists(key) {
-    try {
-      return await this.client.exists(key);
-    } catch (error) {
-      logger.error(`Cache exists error: ${error.message}`);
-      return false;
-    }
-  }
+      await userController.updateUserProfile(req, res);
 
-  async increment(key) {
-    try {
-      if (!await this.exists(key)) {
-        await this.set(key, '0');
-      }
-      return await this.client.incr(key);
-    } catch (error) {
-      logger.error(`Cache increment error: ${error.message}`);
-      return null;
-    }
-  }
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        formatErrorResponse('Invalid email format')
+      );
+    });
+  });
 
-  async expire(key, seconds) {
-    try {
-      return await this.client.expire(key, seconds);
-    } catch (error) {
-      logger.error(`Cache expire error: ${error.message}`);
-      return false;
-    }
-  }
+  describe('updateUserPreferences', () => {
+    beforeEach(() => {
+      req.body = {
+        notifications: {
+          email: false,
+          push: true
+        },
+        theme: 'dark'
+      };
+    });
 
-  async disconnect() {
-    try {
-      await this.client.quit();
-      logger.info('Redis client disconnected');
-      return true;
-    } catch (error) {
-      logger.error(`Redis disconnect error: ${error.message}`);
-      return false;
-    }
-  }
-}
+    it('should update preferences successfully', async () => {
+      const updatedUser = {
+        ...mockUser,
+        preferences: req.body,
+        save: jest.fn().mockResolvedValue({ ...mockUser, preferences: req.body })
+      };
+      User.findById.mockResolvedValue(updatedUser);
 
-module.exports = new CacheService();
+      await userController.updateUserPreferences(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        formatSuccessResponse('Preferences updated successfully', req.body)
+      );
+    });
+
+    it('should handle partial preference updates', async () => {
+      req.body = { theme: 'dark' };
+      const updatedPreferences = {
+        ...mockUser.preferences,
+        theme: 'dark'
+      };
+      
+      const updatedUser = {
+        ...mockUser,
+        preferences: updatedPreferences,
+        save: jest.fn().mockResolvedValue({ ...mockUser, preferences: updatedPreferences })
+      };
+      User.findById.mockResolvedValue(updatedUser);
+
+      await userController.updateUserPreferences(req, res);
+
+      expect(res.json).toHaveBeenCalledWith(
+        formatSuccessResponse('Preferences updated successfully', updatedPreferences)
+      );
+    });
+  });
+
+  describe('deleteUserProfile', () => {
+    it('should delete user successfully', async () => {
+      User.findByIdAndDelete.mockResolvedValue(mockUser);
+
+      await userController.deleteUserProfile(req, res);
+
+      expect(User.findByIdAndDelete).toHaveBeenCalledWith('mockUserId');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        formatSuccessResponse('Profile deleted successfully')
+      );
+    });
+
+    it('should handle user not found', async () => {
+      User.findByIdAndDelete.mockResolvedValue(null);
+
+      await userController.deleteUserProfile(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith(
+        formatErrorResponse('User not found')
+      );
+    });
+  });
+});
