@@ -34,6 +34,9 @@ class CacheService {
 
   async set(key, value, ttl = 3600) {
     try {
+      if (typeof value === 'undefined') {
+        return false;
+      }
       const serializedValue = JSON.stringify(value);
       if (ttl) {
         await this.client.set(key, serializedValue, 'EX', ttl);
@@ -91,6 +94,10 @@ class CacheService {
 
   async increment(key) {
     try {
+      const value = await this.client.get(key);
+      if (!value) {
+        await this.client.set(key, '0');
+      }
       return await this.client.incr(key);
     } catch (error) {
       logger.error(`Cache increment error: ${error.message}`);

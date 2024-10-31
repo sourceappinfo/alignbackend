@@ -1,17 +1,20 @@
+// tests/services/cacheService.test.js
 const cacheService = require('../../services/cacheService');
+const Redis = require('ioredis-mock');
 
 describe('Cache Service', () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
+    // Replace Redis client with mock for testing
+    cacheService.client = new Redis();
+    await cacheService.clear();
+  });
+
+  afterEach(async () => {
     await cacheService.clear();
   });
 
   afterAll(async () => {
-    await cacheService.clear();
     await cacheService.disconnect();
-  });
-
-  beforeEach(async () => {
-    await cacheService.clear();
   });
 
   describe('Basic Operations', () => {
@@ -87,7 +90,9 @@ describe('Cache Service', () => {
 
     it('should increment numeric values', async () => {
       const testKey = 'counter';
-      await cacheService.set(testKey, '0');
+      
+      // Set initial value as string '0'
+      await cacheService.client.set(testKey, '0');
 
       const result1 = await cacheService.increment(testKey);
       expect(result1).toBe(1);
@@ -122,12 +127,17 @@ describe('Cache Service', () => {
 
     it('should handle connection errors gracefully', async () => {
       const originalClient = cacheService.client;
-      cacheService.client.quit();
+      
+      // Replace client with one that will fail
+      cacheService.client = {
+        set: jest.fn().mockRejectedValue(new Error('Connection failed')),
+        quit: jest.fn()
+      };
 
       const result = await cacheService.set('test', 'value');
       expect(result).toBe(false);
 
-      // Restore client
+      // Restore original client
       cacheService.client = originalClient;
     });
   });
@@ -163,6 +173,30 @@ describe('Cache Service', () => {
       await cacheService.set('nested', testNested);
       const result = await cacheService.get('nested');
       expect(result).toEqual(testNested);
+    });
+  });
+
+  describe('TTL Operations', () => {
+    it('should set and respect TTL', async () => {
+      const testKey = 'ttlTest';
+      const testValue = 'ttlValue';
+      
+      await cacheService.set(testKey, testValue, 1);
+      expect(await cacheService.get(testKey)).toBe(testValue);
+      
+      await new Promise(resolve => setTimeout(resolve, 1100));
+      expect(await cacheService.get(testKey)).toBeNull();
+    });
+
+    it('should update TTL on existing key', async () => {
+      const testKey = 'updateTTL';
+      await cacheService.set(testKey, 'value');
+      
+      const success = await cacheService.expire(testKey, 1);
+      expect(success).toBe(1);
+      
+      await new Promise(resolve => setTimeout(resolve, 1100));
+      expect(await cacheService.get(testKey)).toBeNull();
     });
   });
 });
