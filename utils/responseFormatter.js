@@ -1,18 +1,16 @@
-// utils/responseFormatter.js
-
-const formatSuccessResponse = (data, message = 'Success') => ({
+const formatSuccessResponse = (message = 'Success', data = null) => ({
   success: true,
   message,
-  data,
+  data: data || null
 });
 
 const formatErrorResponse = (error, statusCode = 500) => ({
   success: false,
   statusCode,
-  error,
+  error
 });
 
 module.exports = {
   formatSuccessResponse,
-  formatErrorResponse,
+  formatErrorResponse
 };

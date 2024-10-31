@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Recommendation = require('../models/Recommendation');
 const cacheService = require('./cacheService');
 const logger = require('../utils/logger');
@@ -22,7 +23,7 @@ class RecommendationService {
       return recommendations;
     } catch (error) {
       logger.error(`Failed to generate recommendations: ${error.message}`);
-      throw new Error(`Failed to generate recommendations: ${error.message}`);
+      throw error;
     }
   }
 
@@ -41,7 +42,7 @@ class RecommendationService {
       return recommendation;
     } catch (error) {
       logger.error(`Failed to save recommendation: ${error.message}`);
-      throw new Error(`Failed to save recommendation: ${error.message}`);
+      throw error;
     }
   }
 
@@ -64,7 +65,7 @@ class RecommendationService {
       return recommendation;
     } catch (error) {
       logger.error(`Failed to update recommendation: ${error.message}`);
-      throw new Error(`Failed to update recommendation: ${error.message}`);
+      throw error;
     }
   }
 
@@ -83,7 +84,7 @@ class RecommendationService {
       return true;
     } catch (error) {
       logger.error(`Failed to delete recommendation: ${error.message}`);
-      throw new Error(`Failed to delete recommendation: ${error.message}`);
+      throw error;
     }
   }
 
@@ -94,7 +95,7 @@ class RecommendationService {
         .lean();
     } catch (error) {
       logger.error(`Failed to get recommendation: ${error.message}`);
-      throw new Error(`Failed to get recommendation: ${error.message}`);
+      throw error;
     }
   }
 }

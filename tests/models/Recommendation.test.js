@@ -1,6 +1,19 @@
 const mongoose = require('mongoose');
 const Recommendation = require('../../models/Recommendation');
 
+beforeAll(async () => {
+  // Connect to the MongoDB test database
+  await mongoose.connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+});
+
+afterAll(async () => {
+  // Disconnect from MongoDB after all tests are done
+  await mongoose.disconnect();
+});
+
 describe('Recommendation Model', () => {
   beforeEach(async () => {
     await Recommendation.deleteMany({});
