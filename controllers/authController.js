@@ -1,3 +1,4 @@
+// controllers/authController.js
 const AuthService = require('../services/authService');
 const { formatSuccessResponse, formatErrorResponse } = require('../utils/responseFormatter');
 const logger = require('../utils/logger');
@@ -170,8 +171,7 @@ class AuthController {
 
   static async logout(req, res) {
     try {
-      // In a real application, you might want to invalidate the token
-      // or remove it from a whitelist/database
+      // Logout functionality; optional: invalidate token here
       return res.status(200).json(
         formatSuccessResponse('Logout successful')
       );

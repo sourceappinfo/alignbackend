@@ -1,91 +1,93 @@
+// tests/models/User.test.js
+
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const { connect, closeDatabase, clearDatabase } = require('../../config/test-db');
+const User = require('../../models/User');
 
-const userSchema = new mongoose.Schema({
-  email: {
-    type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    lowercase: true,
-    trim: true,
-    match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email']
-  },
-  password: {
-    type: String,
-    required: [true, 'Password is required'],
-    minlength: [8, 'Password must be at least 8 characters']
-  },
-  name: {
-    type: String,
-    trim: true
-  },
-  role: {
-    type: String,
-    enum: ['user', 'admin'],
-    default: 'user'
-  },
-  preferences: {
-    notifications: {
-      email: { type: Boolean, default: true },
-      push: { type: Boolean, default: true }
-    },
-    theme: {
-      type: String,
-      enum: ['light', 'dark'],
-      default: 'light'
-    }
-  },
-  lastLogin: {
-    type: Date
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  }
-}, {
-  timestamps: true
+describe('User Model', () => {
+  beforeAll(async () => {
+    await connect();
+  });
+
+  afterEach(async () => {
+    await clearDatabase();
+  });
+
+  afterAll(async () => {
+    await closeDatabase();
+  });
+
+  describe('Validation', () => {
+    it('should validate required fields', async () => {
+      const user = new User({});
+      
+      let error;
+      try {
+        await user.validate();
+      } catch (err) {
+        error = err;
+      }
+      
+      expect(error).toBeDefined();
+      expect(error.errors.email).toBeDefined();
+      expect(error.errors.password).toBeDefined();
+    });
+
+    it('should validate email format', async () => {
+      const user = new User({
+        email: 'invalid-email',
+        password: 'password123'
+      });
+
+      let error;
+      try {
+        await user.validate();
+      } catch (err) {
+        error = err;
+      }
+
+      expect(error).toBeDefined();
+      expect(error.errors.email.message).toBe('Please provide a valid email');
+    });
+
+    it('should hash password before saving', async () => {
+      const user = new User({
+        email: 'test@example.com',
+        password: 'password123'
+      });
+
+      await user.save();
+      expect(user.password).not.toBe('password123');
+      expect(user.password).toHaveLength(60); // bcrypt hash length
+    });
+  });
+
+  describe('Methods', () => {
+    it('should compare password correctly', async () => {
+      const user = new User({
+        email: 'test@example.com',
+        password: 'password123'
+      });
+
+      await user.save();
+      const isMatch = await user.comparePassword('password123');
+      const isNotMatch = await user.comparePassword('wrongpassword');
+
+      expect(isMatch).toBe(true);
+      expect(isNotMatch).toBe(false);
+    });
+
+    it('should generate auth token', async () => {
+      const user = new User({
+        email: 'test@example.com',
+        password: 'password123'
+      });
+
+      await user.save();
+      const token = user.generateAuthToken();
+
+      expect(token).toBeDefined();
+      expect(typeof token).toBe('string');
+    });
+  });
 });
-
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    return next();
-  }
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
-});
-
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  try {
-    const isMatch = await bcrypt.compare(candidatePassword, this.password);
-    if (!isMatch) {
-      throw new Error('Password comparison failed');
-    }
-    return isMatch;
-  } catch (error) {
-    throw new Error('Password comparison failed');
-  }
-};
-
-userSchema.methods.generateAuthToken = function() {
-  return jwt.sign(
-    { userId: this._id, role: this.role },
-    process.env.JWT_SECRET,
-    { expiresIn: '1h' }
-  );
-};
-
-userSchema.methods.toJSON = function() {
-  const userObject = this.toObject();
-  delete userObject.password;
-  return userObject;
-};
-
-const User = mongoose.model('User', userSchema);
-module.exports = User;

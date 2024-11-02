@@ -1,29 +1,32 @@
 // jest.config.js
+
 module.exports = {
     testEnvironment: 'node',
     testMatch: ['**/tests/**/*.test.js'],
     moduleFileExtensions: ['js', 'json'],
-    verbose: true, // Single verbose declaration
+    verbose: true,
     collectCoverage: true,
     coverageDirectory: './coverage',
     setupFilesAfterEnv: ['./tests/jest.setup.js'],
-    setupFiles: ['dotenv/config'],
-    testTimeout: 10000, // Adjust based on environment if needed
+    testTimeout: 30000,
     clearMocks: true,
     coveragePathIgnorePatterns: [
-        '/node_modules/',
-        '/tests/',
-        '/config/',
-        'jest.config.js'
+      '/node_modules/',
+      '/tests/',
+      '/config/',
+      'jest.config.js'
     ],
     coverageThreshold: {
-        global: {
-            branches: 80,
-            functions: 80,
-            lines: 80,
-            statements: 80
-        }
+      global: {
+        branches: 80,
+        functions: 80,
+        lines: 80,
+        statements: 80
+      }
     },
     detectOpenHandles: true,
-    forceExit: true
-};
+    // Add this to properly handle MongoDB memory server
+    testEnvironmentOptions: {
+      NODE_ENV: 'test'
+    }
+  };

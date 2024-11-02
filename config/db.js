@@ -1,4 +1,5 @@
 // config/db.js
+
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 
@@ -11,15 +12,20 @@ const connectDB = async (uri = process.env.MONGO_URI) => {
       family: 4
     };
 
+    if (process.env.NODE_ENV === 'test') {
+      logger.info('Running in test mode; using MongoMemoryServer.');
+      return;
+    }
+
     const conn = await mongoose.connect(uri, options);
 
-    mongoose.connection.on('error', err => {
+    mongoose.connection.on('error', (err) => {
       logger.error(`MongoDB connection error: ${err}`);
     });
 
     mongoose.connection.on('disconnected', () => {
       logger.warn('MongoDB disconnected');
-      setTimeout(() => connectDB(uri), 5000); // Attempt reconnection
+      setTimeout(() => connectDB(uri), 5000);
     });
 
     mongoose.connection.on('reconnected', () => {
@@ -36,8 +42,10 @@ const connectDB = async (uri = process.env.MONGO_URI) => {
 
 const disconnectDB = async () => {
   try {
-    await mongoose.connection.close();
-    logger.info('MongoDB disconnected');
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+      logger.info('MongoDB disconnected');
+    }
   } catch (error) {
     logger.error(`Error disconnecting from MongoDB: ${error.message}`);
     throw error;

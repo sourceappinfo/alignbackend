@@ -1,24 +1,26 @@
+// services/authService.js
+
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const logger = require('../utils/logger');
 const { ValidationError, AuthenticationError } = require('../utils/errorTypes');
 
 class AuthService {
+  // Register new user
   static async register(userData) {
     try {
       const { email, password, name } = userData;
 
+      // Check if user already exists
       const existingUser = await User.findOne({ email });
       if (existingUser) {
         throw new ValidationError('User already exists');
       }
 
-      const user = await User.create({
-        email,
-        password,
-        name
-      });
+      // Create new user
+      const user = await User.create({ email, password, name });
 
+      // Generate JWT token
       const token = jwt.sign(
         { userId: user._id },
         process.env.JWT_SECRET,
@@ -39,6 +41,7 @@ class AuthService {
     }
   }
 
+  // Login user
   static async login(email, password) {
     try {
       const user = await User.findOne({ email });
@@ -75,6 +78,7 @@ class AuthService {
     }
   }
 
+  // Verify token validity
   static async verifyToken(token) {
     try {
       return jwt.verify(token, process.env.JWT_SECRET);
@@ -83,6 +87,7 @@ class AuthService {
     }
   }
 
+  // Change password
   static async changePassword(userId, currentPassword, newPassword) {
     try {
       const user = await User.findById(userId);
@@ -105,6 +110,7 @@ class AuthService {
     }
   }
 
+  // Request password reset
   static async resetPasswordRequest(email) {
     try {
       const user = await User.findOne({ email });
@@ -128,6 +134,7 @@ class AuthService {
     }
   }
 
+  // Reset password
   static async resetPassword(resetToken, newPassword) {
     try {
       const decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
